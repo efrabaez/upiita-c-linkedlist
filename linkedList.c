@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
  /*Definimos estructura*/
 typedef struct _Node {
         int data;
         struct _Node *next;
+        struct _Node *previous;
         } Node;
 /*Declaramos prototipo de las funciones*/
 
@@ -24,10 +26,16 @@ Node * changePosition(Node *, int, int);
 Node * changeItem(Node *, int, int);
 /*Función mostrar lista*/
 void show(Node *);
+void showAll(Node *);
 /*Funcion tamaño lista*/
 int theSize(Node *);
 /*Funcion buscar elemento*/
 int searchItem(Node *, int);
+/*Funciones archivos*/
+Node *readFile(Node *);
+void createFile(Node *);
+/*Funcion ordenar lista*/
+void sortList(Node *);
 
 
 /*Inicia programa principal*/
@@ -42,6 +50,9 @@ int main(){
 void menu(){
   int opt=0, data=0, position=0, item=0;
   Node *list = NULL;
+  list = readFile(list);
+  sortList(list);
+  createFile(list);
   do{
     printf("\n1. Ingresar dato\n2. Eliminar dato\n3. Cambiar dato\n4. Mostrar lista\n5. Mostrar tamano\nIngresa opcion deseada: ");
     fflush(stdin);
@@ -138,14 +149,17 @@ Node *allocateMemory(int _data){
 	newNode = (Node *) malloc (sizeof(Node));
 	newNode->data = _data;
 	newNode->next = NULL;
+    newNode->previous = NULL;
 	return newNode;
 }
 
 Node * pushFirst(Node *_list, int _data){
   Node *newNode = NULL;
   newNode = allocateMemory(_data);
-  if(_list)
+  if(_list){
     newNode->next = _list;
+    _list->previous = newNode;
+    }
   return newNode;
 }
 
@@ -161,6 +175,7 @@ Node * pushLast(Node *_list, int _data){
       listAux=listAux->next;
     }
     listAux->next = newNode;
+    newNode->previous = listAux;
   }
   return _list;
 }
@@ -182,7 +197,9 @@ Node * pushPosition(Node *_list, int _data, int _position){
         listAux = listAux->next;
       }
       newNode->next = listAux->next;
+      listAux->next->previous = newNode;
       listAux->next = newNode;
+      newNode->previous = listAux;
     }  
   }else{
     _list =  pushFirst(_list, _data);
@@ -203,6 +220,9 @@ Node * popFirst(Node *_list){
   if (_list) {
     listAux=_list;
     _list=_list->next;
+    if (_list) {
+      _list->previous = NULL;
+    }
     free(listAux);
   }
   return _list;
@@ -231,16 +251,21 @@ Node * popPosition(Node *_list, int _position){
   int listSize = 0, i = 0;
   listSize = theSize(_list);
   if (listSize) {
-    if (_position <= listSize) {
-      listAux = _list;
-      for(i = 1; i < _position; i++){
-        listAux = listAux->next;
+    if (listSize > 1) {
+      if (_position <= listSize) {
+        listAux = _list;
+        for(i = 1; i < _position; i++){
+          listAux = listAux->next;
+        }
+        listDelete = listAux->next;
+        listAux->next = listDelete->next;
+        listAux->next->previous = listAux;
+        free(listDelete);
+      }else{
+        printf("Posicion inexistente");
       }
-      listDelete = listAux->next;
-      listAux->next = listDelete->next;
-      free(listDelete);
-    }else{
-      printf("Posicion inexistente");
+    }else {
+      _list = popFirst( _list);
     }
   }else{
     printf("La lista no tiene elementos");
@@ -285,13 +310,32 @@ Node * changeItem(Node *_list, int _data, int _item){
 
 /*Inicio bloque mostrar, tamaño y buscar*/
 void show(Node *_list){
-  if (!_list){
-    printf("Vacia");
-  }
-  while(_list){
-    printf("%i\t", _list->data);
-    _list = _list->next;
-  } 
+  int opt =0;
+  do {
+    printf("\n1. Moverse a la derecha\n2. Moverse a la izquierda\n-1. Salir\nIngresa opcion deseada: ");
+    fflush(stdin);
+    scanf("%i", &opt);
+    switch (opt) {
+      case 1:
+        if (_list->next) {
+          _list=_list->next;
+          printf("\nDato: %i",_list->data);
+        }else {
+          printf("\nVacia a la derecha");
+        }
+      break;
+      case 2:
+       if (_list->previous) {
+          _list=_list->previous;
+          printf("\nDato: %i",_list->data);
+        }else {
+          printf("\nVacia a la Izquierda");
+        }
+      break;      
+    }
+  } while (opt != -1); 
+  
+
 }
 
 int theSize(Node *_list){
@@ -313,4 +357,80 @@ int searchItem(Node * _list, int _data){
     position++;
   }
   return position;
+}
+
+/*Inicio bloque archivos*/
+
+Node * readFile(Node *_list){
+  char name[20];
+  int data = 0;
+
+  printf("\nNombre de tu archivo: ");
+  gets(name);
+  strcat(name, ".txt");
+  puts(name);
+  
+  FILE *file = fopen(name, "r+");
+  
+  if (!file) {
+    printf("\nArchivo inexistente");
+  }else {
+    while(!feof(file)){
+      fscanf(file, "%i", &data);
+      _list = pushFirst(_list, data);
+    }
+    fclose(file);
+  }
+  return _list;
+}
+
+void createFile(Node *_list){
+  char name[20];
+  int data = 0;
+
+  printf("\nNombre de tu archivo: ");
+  gets(name);
+  strcat(name, ".txt");
+  puts(name);
+  
+  FILE *file = fopen(name, "w+");
+
+  while(_list){
+    fprintf(file, "%i\n", _list->data);
+    _list = _list->next;
+  }
+  fclose(file);
+}
+
+void  sortList(Node *_list){
+  int min = 0;
+  Node *sortedList = NULL, *aux = NULL;
+
+  while(_list){ 
+    sortedList = _list; 
+    aux = _list->next;
+    while(aux){ //Encuentro el elemento menor
+      if(aux->data < sortedList->data){
+        sortedList = aux;
+      }
+      aux = aux->next; //Recorrro mi lista auxiliar
+    }
+    if (sortedList != _list) { //Intercambio la información
+      min = sortedList->data;
+      sortedList->data = _list->data;
+      _list->data = min;
+    } 
+    _list = _list->next; //Recorro mi lista
+  }
+
+}
+
+void showAll(Node *_list){
+  if (!_list){
+    printf("Vacia");
+  }
+  while(_list){
+    printf("%i\t", _list->data);
+    _list = _list->next;
+  } 
 }
